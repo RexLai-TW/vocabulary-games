@@ -663,16 +663,15 @@ function speakWord(word, lang = 'en-US') {
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   if (ttsAudio) { ttsAudio.pause(); ttsAudio.currentTime = 0; }
 
-  // iOS Safari: use SpeechSynthesis first (most reliable), Google TTS as enhancement
-  // Other browsers: use Google TTS first (better quality), SpeechSynthesis as fallback
-  if (isIOSafari && 'speechSynthesis' in window) {
+  // iOS (Safari + Chrome): MUST call SpeechSynthesis synchronously within user gesture.
+  // Google Translate TTS fails on iOS — fetch() blocked by CORS, Audio() blocked outside gesture.
+  if (isIOS && 'speechSynthesis' in window) {
     speakSpeechSynthesis(cleanWord, lang);
-    // Also try Google TTS in background for better quality
-    speakGoogle(cleanWord, lang).catch(() => {});
-  } else {
-    // Try Google Translate TTS first, fallback to SpeechSynthesis
-    speakGoogle(cleanWord, lang).catch(() => speakSpeechSynthesis(cleanWord, lang));
+    return;
   }
+
+  // Non-iOS: Try Google Translate TTS first (better quality), SpeechSynthesis as fallback
+  speakGoogle(cleanWord, lang).catch(() => speakSpeechSynthesis(cleanWord, lang));
 }
 
 function speakGoogle(word, lang) {
