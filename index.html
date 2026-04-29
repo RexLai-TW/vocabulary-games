@@ -764,32 +764,22 @@ function initAudio() {
   if (audioInitialized) return;
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    // Resume on iOS — must be called from user gesture
-    if (ctx.state === 'suspended') {
-      ctx.resume().then(() => { audioCtx = ctx; audioInitialized = true; });
-    } else {
+    const readyPromise = ctx.state === 'suspended' ? ctx.resume() : Promise.resolve();
+    readyPromise.then(() => {
       audioCtx = ctx;
       audioInitialized = true;
-    }
 
-    // iOS: play a short beep to confirm audio is working
-    if (isIOS) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = 800;
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.15);
-
-      // Hide overlay after beep
-      const overlay = document.getElementById('iosAudioOverlay');
-      if (overlay) {
-        overlay.style.display = 'none';
+      // iOS: play silent buffer to fully unlock AudioContext, then hide overlay
+      if (isIOS) {
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+        const overlay = document.getElementById('iosAudioOverlay');
+        if (overlay) overlay.style.display = 'none';
       }
-    }
+    });
   } catch(e) {}
 }
 
@@ -820,42 +810,40 @@ function getAudioCtx() {
 function playCorrectSound() {
   try {
     const ctx = getAudioCtx();
-    if (ctx.state === 'suspended') ctx.resume();
+    const play = () => {
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      gain1.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc1.connect(gain1).connect(ctx.destination);
+      osc1.start(ctx.currentTime);
+      osc1.stop(ctx.currentTime + 0.3);
 
-    // First tone - bright high note
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-    gain1.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-    osc1.connect(gain1).connect(ctx.destination);
-    osc1.start(ctx.currentTime);
-    osc1.stop(ctx.currentTime + 0.3);
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+      gain2.gain.setValueAtTime(0, ctx.currentTime);
+      gain2.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.1);
+      gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc2.connect(gain2).connect(ctx.destination);
+      osc2.start(ctx.currentTime + 0.1);
+      osc2.stop(ctx.currentTime + 0.5);
 
-    // Second tone - higher note (ascending)
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
-    gain2.gain.setValueAtTime(0, ctx.currentTime);
-    gain2.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.1);
-    gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-    osc2.connect(gain2).connect(ctx.destination);
-    osc2.start(ctx.currentTime + 0.1);
-    osc2.stop(ctx.currentTime + 0.5);
-
-    // Third tone - even higher (triumphant)
-    const osc3 = ctx.createOscillator();
-    const gain3 = ctx.createGain();
-    osc3.type = 'sine';
-    osc3.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); // G5
-    gain3.gain.setValueAtTime(0, ctx.currentTime);
-    gain3.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.2);
-    gain3.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.7);
-    osc3.connect(gain3).connect(ctx.destination);
-    osc3.start(ctx.currentTime + 0.2);
-    osc3.stop(ctx.currentTime + 0.7);
+      const osc3 = ctx.createOscillator();
+      const gain3 = ctx.createGain();
+      osc3.type = 'sine';
+      osc3.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); // G5
+      gain3.gain.setValueAtTime(0, ctx.currentTime);
+      gain3.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.2);
+      gain3.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.7);
+      osc3.connect(gain3).connect(ctx.destination);
+      osc3.start(ctx.currentTime + 0.2);
+      osc3.stop(ctx.currentTime + 0.7);
+    };
+    if (ctx.state === 'suspended') { ctx.resume().then(play); } else { play(); }
   } catch(e) {}
 }
 
@@ -863,30 +851,29 @@ function playCorrectSound() {
 function playWrongSound() {
   try {
     const ctx = getAudioCtx();
-    if (ctx.state === 'suspended') ctx.resume();
+    const play = () => {
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'square';
+      osc1.frequency.setValueAtTime(200, ctx.currentTime);
+      gain1.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+      osc1.connect(gain1).connect(ctx.destination);
+      osc1.start(ctx.currentTime);
+      osc1.stop(ctx.currentTime + 0.35);
 
-    // First tone - low buzz
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.type = 'square';
-    osc1.frequency.setValueAtTime(200, ctx.currentTime);
-    gain1.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
-    osc1.connect(gain1).connect(ctx.destination);
-    osc1.start(ctx.currentTime);
-    osc1.stop(ctx.currentTime + 0.35);
-
-    // Second tone - even lower
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.type = 'square';
-    osc2.frequency.setValueAtTime(150, ctx.currentTime + 0.15);
-    gain2.gain.setValueAtTime(0, ctx.currentTime);
-    gain2.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.15);
-    gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
-    osc2.connect(gain2).connect(ctx.destination);
-    osc2.start(ctx.currentTime + 0.15);
-    osc2.stop(ctx.currentTime + 0.6);
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(150, ctx.currentTime + 0.15);
+      gain2.gain.setValueAtTime(0, ctx.currentTime);
+      gain2.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.15);
+      gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+      osc2.connect(gain2).connect(ctx.destination);
+      osc2.start(ctx.currentTime + 0.15);
+      osc2.stop(ctx.currentTime + 0.6);
+    };
+    if (ctx.state === 'suspended') { ctx.resume().then(play); } else { play(); }
   } catch(e) {}
 }
 
