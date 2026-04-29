@@ -9,3 +9,11 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Dev tool artifacts (not part of the project)
+.claude/
+.codex/
+.opencode/
+openspec/
+.env
+.env.*
