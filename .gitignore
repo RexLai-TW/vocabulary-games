@@ -15,5 +15,6 @@ Thumbs.db
 .codex/
 .opencode/
 openspec/
+.superpowers/
 .env
 .env.*
