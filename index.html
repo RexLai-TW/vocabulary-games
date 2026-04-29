@@ -223,58 +223,6 @@
   .letter-btn:hover { border-color: var(--blue); transform: scale(1.1); }
   .letter-btn.used { opacity: .3; pointer-events: none; }
 
-  /* Memory Game */
-  .memory-grid {
-    display: grid;
-    gap: 8px;
-    max-width: 500px;
-    width: 100%;
-  }
-
-  .memory-card {
-    aspect-ratio: 1;
-    border-radius: 12px;
-    cursor: pointer;
-    perspective: 600px;
-    position: relative;
-  }
-
-  .memory-card-inner {
-    width: 100%; height: 100%;
-    position: relative;
-    transition: transform .5s;
-    transform-style: preserve-3d;
-  }
-
-  .memory-card.flipped .memory-card-inner,
-  .memory-card.matched .memory-card-inner { transform: rotateY(180deg); }
-
-  .memory-front, .memory-back {
-    position: absolute; inset: 0;
-    border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    backface-visibility: hidden;
-    font-weight: 700;
-  }
-
-  .memory-front {
-    background: linear-gradient(135deg, var(--purple), var(--blue));
-    color: #fff;
-    font-size: 1.6rem;
-  }
-
-  .memory-back {
-    background: #fff;
-    border: 3px solid #eee;
-    transform: rotateY(180deg);
-    font-size: .85rem;
-    color: #333;
-    padding: 4px;
-    word-break: break-word;
-  }
-
-  .memory-card.matched .memory-back { border-color: var(--green); background: #ecfdf5; }
-
   /* Scramble Game */
   .scrambled-letters { display: flex; gap: 8px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
 
@@ -625,7 +573,6 @@ const gameModes = [
   { id: 'reverse', icon: '🔄', name: '反向挑戰', desc: '看中文選英文單字' },
   { id: 'listen', icon: '👂', name: '聽音選詞', desc: '聽發音選出正確意思' },
   { id: 'spell', icon: '✏️', name: '拼字遊戲', desc: '根據提示拼出單字' },
-  { id: 'memory', icon: '🃏', name: '記憶翻牌', desc: '配對英文和中文' },
   { id: 'scramble', icon: '🔤', name: '字母重組', desc: '把打亂的字母拼回來' },
   { id: 'speed', icon: '⚡', name: '限時挑戰', desc: '30秒內答對越多越好' }
 ];
@@ -956,10 +903,6 @@ let state = {
   currentIndex: 0,
   correctCount: 0,
   totalQuestions: 10,
-  // Memory game state
-  memoryCards: [],
-  flippedCards: [],
-  matchedPairs: 0,
   // Spell game state
   spellWord: null,
   spellIndex: 0,
@@ -1245,7 +1188,6 @@ function startGame() {
     case 'reverse': startReverse(); break;
     case 'listen': startListen(); break;
     case 'spell': startSpell(); break;
-    case 'memory': startMemory(); break;
     case 'scramble': startScramble(); break;
     case 'speed': startSpeed(); break;
   }
@@ -1555,102 +1497,6 @@ function resetSpell() {
   document.querySelectorAll('#spellSlots .letter-slot').forEach(s => { s.textContent=''; s.classList.remove('filled','current'); s.style.borderColor=''; s.style.color=''; });
 }
 
-// ==================== MEMORY GAME ====================
-function startMemory() {
-  const pairCount = Math.min(6, state.currentWords.length);
-  const words = shuffle([...state.currentWords]).slice(0, pairCount);
-
-  state.memoryCards = [];
-  state.flippedCards = [];
-  state.matchedPairs = 0;
-  state.currentIndex = 0;
-  state.correctCount = 0;
-
-  words.forEach(([en, zh], i) => {
-    state.memoryCards.push({ id: i*2, pairId: i, text: en, type: 'en' });
-    state.memoryCards.push({ id: i*2+1, pairId: i, text: zh, type: 'zh' });
-  });
-
-  state.memoryCards = shuffle(state.memoryCards);
-  renderMemory();
-}
-
-function renderMemory() {
-  const cols = state.memoryCards.length > 12 ? 4 : 3;
-  const gc = document.getElementById('gameContent');
-  gc.innerHTML = `
-    <h2>🃏 記憶翻牌</h2>
-    <div class="game-subtitle">配對英文和中文 — 已找到 ${state.matchedPairs}/${state.memoryCards.length/2}</div>
-    <div class="memory-grid" style="grid-template-columns:repeat(${cols},1fr);max-width:${cols*100}px;">
-      ${state.memoryCards.map((card, i) => `
-        <div class="memory-card${card.flipped?' flipped':''}${card.matched?' matched':''}" data-idx="${i}" onclick="flipCard(${i})">
-          <div class="memory-card-inner">
-            <div class="memory-front">?</div>
-            <div class="memory-back">${card.text}</div>
-          </div>
-        </div>`).join('')}
-    </div>`;
-}
-
-function flipCard(idx) {
-  const card = state.memoryCards[idx];
-  if (card.flipped || card.matched || state.flippedCards.length >= 2) return;
-
-  card.flipped = true;
-  state.flippedCards.push(idx);
-  renderMemory();
-
-  if (state.flippedCards.length === 2) {
-    const [a, b] = state.flippedCards;
-    const ca = state.memoryCards[a], cb = state.memoryCards[b];
-
-    if (ca.pairId === cb.pairId && ca.type !== cb.type) {
-      // Match!
-      playCorrectSound();
-      setTimeout(() => {
-        ca.matched = true; cb.matched = true;
-        state.matchedPairs++;
-        state.correctCount++;
-        state.streak++;
-        markLearned(ca.text);
-        state.flippedCards = [];
-        renderMemory();
-        updateStreak();
-
-        if (state.matchedPairs >= state.memoryCards.length / 2) {
-          setTimeout(() => showResult(), 500);
-        }
-      }, 500);
-    } else {
-      // No match — play wrong sound and show hint briefly
-      playWrongSound();
-      const wordPair = state.currentWords[ca.pairId];
-      const [en, zh] = wordPair || ['', ''];
-      setTimeout(() => {
-        ca.flipped = false; cb.flipped = false;
-        state.streak = 0;
-        state.flippedCards = [];
-
-        // Show hint briefly before flipping back
-        const gc = document.getElementById('gameContent');
-        const hintDiv = document.createElement('div');
-        hintDiv.className = 'wrong-hint';
-        hintDiv.innerHTML = `
-          <div class="wrong-hint-label">💡 配對答案是：</div>
-          <div class="wrong-hint-answer">${en}</div>
-          <div class="wrong-hint-meaning">${zh}</div>`;
-        gc.querySelector('.memory-grid').after(hintDiv);
-
-        renderMemory();
-        updateStreak();
-
-        // Remove hint after delay
-        setTimeout(() => { if (hintDiv.parentNode) hintDiv.remove(); }, 1500);
-      }, 800);
-    }
-  }
-}
-
 // ==================== SCRAMBLE MODE ====================
 function startScramble() { showScrambleWord(); }
 
@@ -1811,7 +1657,7 @@ function checkSpeed(btn, selected, correct) {
 function showResult() {
   if (state.speedTimer) clearInterval(state.speedTimer);
 
-  const total = state.gameMode === 'memory' ? state.memoryCards.length / 2 : state.currentWords.length;
+  const total = state.currentWords.length;
   const pct = total > 0 ? Math.round(state.correctCount / total * 100) : 0;
   let stars = pct >= 90 ? 3 : pct >= 60 ? 2 : pct >= 30 ? 1 : 0;
 
