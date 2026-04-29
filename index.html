@@ -648,6 +648,7 @@ if (isIOS) {
 }
 
 let ttsMethod = null; // cached: 'google' | 'speechsynthesis' | null
+let ttsAudio = null;  // Audio element for Google TTS playback
 
 // Detect if we're on iOS Safari to pick optimal TTS strategy
 const isIOSafari = isIOS && /Safari/.test(navigator.userAgent) && !/CriOS/.test(navigator.userAgent);
