@@ -597,6 +597,14 @@ if (isIOS) {
 let ttsMethod = null; // cached: 'google' | 'speechsynthesis' | null
 let ttsAudio = null;  // Audio element for Google TTS playback
 
+// Known natural English female voices across platforms
+// Priority: Enhanced/Premium (iOS 16+) → named females → any English
+const FEMALE_VOICE_NAMES = [
+  'Samantha', 'Zira', 'Eva', 'Karen',
+  'Moira', 'Ava', 'Tessa', 'Victoria',
+  'Allison', 'Susan', 'Fiona', 'Google US English'
+];
+
 function speakWord(word, lang = 'en-US') {
   if (!word || word.trim() === '') return;
 
@@ -674,12 +682,16 @@ function speakSpeechSynthesis(word, lang) {
   utterance.rate = 0.85;
   utterance.pitch = 1.1;
 
-  // Prefer English female voice on iOS
-  if (voices.length > 0) {
-    const enVoice = voices.find(v => v.lang.startsWith('en') && v.name.includes('Female'))
-      || voices.find(v => v.lang.startsWith('en'));
-    if (enVoice) utterance.voice = enVoice;
-  }
+  // Select best available English female voice:
+  // 1. Enhanced/Premium (iOS 16+ — most natural)
+  // 2. Known female voice names (cross-platform list)
+  // 3. Any English voice (last resort)
+  const enVoices = voices.filter(v => v.lang.startsWith('en'));
+  const voice =
+    enVoices.find(v => /enhanced|premium/i.test(v.name)) ||
+    enVoices.find(v => FEMALE_VOICE_NAMES.some(n => v.name.includes(n))) ||
+    enVoices[0];
+  if (voice) utterance.voice = voice;
 
   // Debug: log voice info on iOS
   if (isIOS) {
