@@ -682,7 +682,6 @@ function speakGoogle(word, lang) {
     })
     .then(buffer => {
       const ctx = getAudioCtx();
-      // iOS Safari: must resume context BEFORE decodeAudioData
       return ctx.resume().then(() => {
         return ctx.decodeAudioData(buffer).then(audioBuffer => {
           const source = ctx.createBufferSource();
@@ -695,9 +694,9 @@ function speakGoogle(word, lang) {
     })
     .catch(() => {
       // Method 2: Audio element fallback (works on iOS when fetch fails)
-      const audio = new Audio(url);
-      audio.volume = 1;
-      return audio.play().then(() => {
+      ttsAudio = new Audio(url);
+      ttsAudio.volume = 1;
+      return ttsAudio.play().then(() => {
         setTTSStatus('google', '🟢 TTS: Google Translate（主要）');
       });
     });
